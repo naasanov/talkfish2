@@ -1,35 +1,98 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { useTranscription } from "./useTransciption";
+import { useEffect } from "react";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const { transcript, isRecording, startTranscription, stopTranscription } =
+    useTranscription();
+
+  const {readyState, ...ws} = useWebSocket(import.meta.env.VITE_WS_URL, {
+    share: false,
+    shouldReconnect: () => true,
+  });
+
+  useEffect(() => {
+    if (readyState === ReadyState.OPEN) {
+      console.log("WebSocket is open");
+      ws.sendMessage("Client Connected!")
+    }
+  }, [readyState, ws])
+
+  const sendMessage = (message: string = "Whats good gang") => {
+    if (readyState === ReadyState.OPEN) {
+      ws.sendMessage(message);
+    }
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+    <div className="min-h-screen w-screen bg-gray-700 text-white flex">
+      {/* Sidebar */}
+      <div className="w-1/6 bg-gray-900 p-4 flex flex-col items-center">
+        {/* Header */}
+        <header className="text-4xl font-bold my-6">Talkfish</header>
+
+        {/* Recording Button */}
+        <button
+          onClick={isRecording ? stopTranscription : startTranscription}
+          className={`${
+            isRecording
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-blue-500 hover:bg-blue-600"
+          } text-white font-semibold py-2 px-6 rounded shadow-md transition-all`}
+        >
+          {isRecording ? "Stop Recording" : "Start Recording"}
         </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+        {/* WebSocket Status */}
+        <div className="mt-6 w-full text-center">
+          <h3 className="text-lg font-semibold mb-2">WebSocket Status</h3>
+          <p
+            className={`${
+              readyState === ReadyState.OPEN
+          ? "text-green-500"
+          : readyState === ReadyState.CLOSED
+          ? "text-red-500"
+          : "text-yellow-500"
+            }`}
+          >
+            {readyState === ReadyState.OPEN
+              ? "Connected"
+              : readyState === ReadyState.CLOSED
+              ? "Disconnected"
+              : "Connecting..."}
+          </p>
+        </div>
+
+        {/* Send Message */}
+        <div className="mt-4 w-full">
+          <button
+            onClick={() => sendMessage()}
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-all w-full"
+          >
+            Send Message
+          </button>
+        </div>
+
+        {/* Last Message */}
+        <div className="mt-4 w-full text-center">
+          <h3 className="text-lg font-semibold mb-2">Last Message</h3>
+          <p className="text-gray-300">
+            {ws.lastMessage?.data || "No messages received"}
+          </p>
+        </div>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+
+      {/* Main Content */}
+      <div className="flex-1 bg-gray-800 p-4 flex flex-col items-center">
+        {/* Transcript Section */}
+        <div className="w-full text-left">
+          <h2 className="text-xl font-semibold mb-4">Transcript</h2>
+          <div className="bg-gray-900 p-4 rounded shadow-md">
+            <p className="text-gray-300">{transcript || "Nothing yet"}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
