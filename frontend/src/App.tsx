@@ -1,28 +1,40 @@
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { useTranscription } from "./useTransciption";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function App() {
-  const { transcript, isRecording, startTranscription, stopTranscription } =
+  const { isRecording, startTranscription, stopTranscription } =
     useTranscription();
 
-  const {readyState, ...ws} = useWebSocket(import.meta.env.VITE_WS_URL, {
+  const { readyState, ...ws } = useWebSocket(import.meta.env.VITE_WS_URL, {
     share: false,
     shouldReconnect: () => true,
   });
 
+  const [message, setMessage] = useState("");
+  const [response, setResponse] = useState("");
+
   useEffect(() => {
     if (readyState === ReadyState.OPEN) {
       console.log("WebSocket is open");
-      ws.sendMessage("Client Connected!")
     }
-  }, [readyState, ws])
+  }, [readyState]);
+
+  useEffect(() => {
+    if (ws.lastMessage != null) {
+      const { data } = ws.lastMessage;
+      console.log("Received message:", data);
+      setResponse((prev) => prev + "\n\n" + data);
+    }
+  }, [ws.lastMessage]);
 
   const sendMessage = (message: string = "Whats good gang") => {
     if (readyState === ReadyState.OPEN) {
+      console.log("Sending message:", message);
       ws.sendMessage(message);
     }
-  }
+    setMessage("");
+  };
 
   return (
     <div className="min-h-screen w-screen bg-gray-700 text-white flex">
@@ -48,10 +60,10 @@ function App() {
           <p
             className={`${
               readyState === ReadyState.OPEN
-          ? "text-green-500"
-          : readyState === ReadyState.CLOSED
-          ? "text-red-500"
-          : "text-yellow-500"
+                ? "text-green-500"
+                : readyState === ReadyState.CLOSED
+                ? "text-red-500"
+                : "text-yellow-500"
             }`}
           >
             {readyState === ReadyState.OPEN
@@ -62,22 +74,24 @@ function App() {
           </p>
         </div>
 
+        {/* Message Input */}
+        <div className="mt-4 w-full">
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type a message"
+            className="bg-gray-800 text-white p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         {/* Send Message */}
         <div className="mt-4 w-full">
           <button
-            onClick={() => sendMessage()}
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-all w-full"
+            onClick={() => sendMessage(message)}
+            className="bg-green-500 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded shadow-md transition-all w-full cursor-pointer"
           >
             Send Message
           </button>
-        </div>
-
-        {/* Last Message */}
-        <div className="mt-4 w-full text-center">
-          <h3 className="text-lg font-semibold mb-2">Last Message</h3>
-          <p className="text-gray-300">
-            {ws.lastMessage?.data || "No messages received"}
-          </p>
         </div>
       </div>
 
@@ -87,7 +101,7 @@ function App() {
         <div className="w-full text-left">
           <h2 className="text-xl font-semibold mb-4">Transcript</h2>
           <div className="bg-gray-900 p-4 rounded shadow-md">
-            <p className="text-gray-300">{transcript || "Nothing yet"}</p>
+            <p className="text-gray-300">{response || "Nothing yet"}</p>
           </div>
         </div>
       </div>
