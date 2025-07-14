@@ -26,3 +26,5 @@ dist-ssr
 *.sw?
 
 
+# Temporary files
+target

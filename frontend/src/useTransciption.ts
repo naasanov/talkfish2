@@ -14,14 +14,17 @@ import {
 export function useTranscription() {
   const { connection, connectToDeepgram, connectionState } = useDeepgram();
   const {
-    setupMicrophone,
     microphone,
+    setupMicrophone,
     startMicrophone,
-    microphoneState,
     stopMicrophone,
+    microphoneState,
   } = useMicrophone();
-  const [transcript, setTranscript] = useState<string>("");
   const keepAliveInterval = useRef<NodeJS.Timeout>(null);
+  const [transcript, setTranscript] = useState<string>("");
+  const [lastChunk, setLastChunk] = useState<string | null>(null);
+  const [lastFinalChunk, setLastFinalChunk] = useState<string | null>(null);
+  const currentChunkRef = useRef<string | null>(null);
 
   useEffect(() => {
     console.log("[Hook] Setting up microphone");
@@ -35,6 +38,9 @@ export function useTranscription() {
       connectToDeepgram({
         model: "nova-3",
         smart_format: true,
+        endpointing: 100,
+        filler_words: true,
+        punctuate: true,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,21 +51,50 @@ export function useTranscription() {
     if (!connection) return;
 
     const onData = (e: BlobEvent) => {
-      console.log("[Hook] Got data from microphone", e.data);
       if (e.data.size > 0) {
+        console.log("[Hook] Got data from microphone");
         connection?.send(e.data);
       }
     };
 
     const onTranscript = (data: LiveTranscriptionEvent) => {
       const text = data.channel.alternatives[0].transcript;
-      console.log("[Hook] Got transcript", text);
 
       if (text == "") {
         return;
       }
 
-      setTranscript((prev) => prev + " " + text);
+      const isPunctuated = ["!", "?", "."].includes(text.slice(-1));
+      const isFinal = data.speech_final && isPunctuated;
+
+      console.log("[Hook] Transcript text:", text);
+      console.log(
+        "[Hook] Current chunk before update:",
+        currentChunkRef.current
+      );
+      console.log("[Hook] Last final chunk before update:", lastFinalChunk);
+
+      setLastChunk(text);
+      setTranscript((prev) => (prev == null ? text : `${prev} ${text}`));
+      if (isFinal) {
+        console.log(
+          "[Hook] Got final chunk:\n",
+          currentChunkRef.current ? `${currentChunkRef.current} ${text}` : text
+        );
+        setLastFinalChunk(
+          currentChunkRef.current ? `${currentChunkRef.current} ${text}` : text
+        );
+        currentChunkRef.current = null;
+      } else {
+        console.log("[Hook] Got continuing chunk:\n", text);
+        if (currentChunkRef.current == null) {
+          console.log("[Hook] Previous chunk is null");
+          currentChunkRef.current = text;
+        } else {
+          currentChunkRef.current = `${currentChunkRef.current} ${text}`;
+        }
+      }
+      console.log("[Hook]");
     };
 
     if (connectionState === SOCKET_STATES.open) {
@@ -106,6 +141,8 @@ export function useTranscription() {
   return {
     startTranscription: startMicrophone,
     stopTranscription: stopMicrophone,
+    lastChunk,
+    lastFinalChunk,
     transcript,
     connection,
     connectionState,
