@@ -1,8 +1,6 @@
 package org.naasanov.talkfish.models;
 
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.UserMessage;
 

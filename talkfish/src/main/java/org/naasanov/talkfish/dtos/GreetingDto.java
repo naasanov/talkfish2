@@ -1,6 +1,5 @@
 package org.naasanov.talkfish.dtos;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data

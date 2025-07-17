@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useDeepgram from "./context/deepgram/useDeepgram";
 import useMicrophone from "./context/microphone/useMicrophone";
 import {
@@ -27,7 +27,7 @@ export function useTranscription() {
   const currentChunkRef = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log("[Hook] Setting up microphone");
+    console.log("[MICROPHONE] Setting up microphone");
     setupMicrophone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -47,38 +47,40 @@ export function useTranscription() {
   }, [microphoneState]);
 
   useEffect(() => {
-    if (!microphone) return;
-    if (!connection) return;
-
-    const onData = (e: BlobEvent) => {
-      if (e.data.size > 0) {
-        console.log("[Hook] Got data from microphone");
-        connection?.send(e.data);
-      }
+    console.log("\n[Hook] Connection state changed");
+    if (!microphone) {
+      console.log("[Hook] No microphone, returning\n");
+      return;
+    }
+    if (!connection) {
+      console.log("[Hook] No connection, returning\n");
+      return;
     };
 
     const onTranscript = (data: LiveTranscriptionEvent) => {
+      console.log("\n[Transcript] Got transcript data")
       const text = data.channel.alternatives[0].transcript;
 
       if (text == "") {
+        console.log("[Transcript] Empty text, returning")
         return;
       }
 
       const isPunctuated = ["!", "?", "."].includes(text.slice(-1));
       const isFinal = data.speech_final && isPunctuated;
 
-      console.log("[Hook] Transcript text:", text);
+      console.log("[Transcript] Transcript text:", text);
       console.log(
-        "[Hook] Current chunk before update:",
+        "[Transcript] Current chunk before update:",
         currentChunkRef.current
       );
-      console.log("[Hook] Last final chunk before update:", lastFinalChunk);
+      console.log("[Transcript] Last final chunk before update:", lastFinalChunk);
 
       setLastChunk(text);
       setTranscript((prev) => (prev == null ? text : `${prev} ${text}`));
       if (isFinal) {
         console.log(
-          "[Hook] Got final chunk:\n",
+          "[Transcript] Got final chunk:\n",
           currentChunkRef.current ? `${currentChunkRef.current} ${text}` : text
         );
         setLastFinalChunk(
@@ -86,21 +88,20 @@ export function useTranscription() {
         );
         currentChunkRef.current = null;
       } else {
-        console.log("[Hook] Got continuing chunk:\n", text);
+        console.log("[Transcript] Got continuing chunk:\n", text);
         if (currentChunkRef.current == null) {
-          console.log("[Hook] Previous chunk is null");
+          console.log("[Transcript] Previous chunk is null");
           currentChunkRef.current = text;
         } else {
           currentChunkRef.current = `${currentChunkRef.current} ${text}`;
         }
       }
-      console.log("[Hook]");
+      console.log("\n")
     };
 
     if (connectionState === SOCKET_STATES.open) {
-      console.log("[Hook] Connection is open, setting up listeners");
+      console.log("[Hook] Connection is open, setting up listener");
       connection.addListener(LiveTranscriptionEvents.Transcript, onTranscript);
-      microphone.addEventListener(MicrophoneEvents.DataAvailable, onData);
 
       // startMicrophone();
     }
@@ -110,7 +111,6 @@ export function useTranscription() {
         LiveTranscriptionEvents.Transcript,
         onTranscript
       );
-      microphone.removeEventListener(MicrophoneEvents.DataAvailable, onData);
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,9 +138,38 @@ export function useTranscription() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [microphoneState, connectionState]);
 
+  const onData = (e: BlobEvent) => {
+    if (e.data.size > 0) {
+      console.log("[MICROPHONE] Got data from microphone");
+      connection?.send(e.data);
+    }
+  };
+
+  const startTranscription = () => {
+    if (!microphone || !connection) {
+      console.log(
+        "[Hook] Cannot start transcription - missing microphone or connection"
+      );
+      return;
+    }
+
+    if (connectionState !== SOCKET_STATES.open) {
+      console.log("[Hook] Cannot start transcription - connection not open");
+      return;
+    }
+
+    microphone.addEventListener(MicrophoneEvents.DataAvailable, onData);
+    startMicrophone();
+  };
+
+  const stopTranscription = () => {
+    microphone?.removeEventListener(MicrophoneEvents.DataAvailable, onData);
+    stopMicrophone();
+  };
+
   return {
-    startTranscription: startMicrophone,
-    stopTranscription: stopMicrophone,
+    startTranscription,
+    stopTranscription,
     lastChunk,
     lastFinalChunk,
     transcript,
@@ -148,6 +177,6 @@ export function useTranscription() {
     connectionState,
     microphone,
     microphoneState,
-    isRecording: microphoneState === MicrophoneState.Open,
+    isRecording: microphone?.state === "recording",
   };
 }

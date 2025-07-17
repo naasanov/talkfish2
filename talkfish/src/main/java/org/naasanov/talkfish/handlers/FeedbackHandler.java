@@ -67,12 +67,9 @@ public class FeedbackHandler extends TextWebSocketHandler {
     String role = json.get("role").asText();
     String content = json.get("content").asText();
 
-    Message wrappedMessage;
-    if ("interviewer".equalsIgnoreCase(role)) {
-      wrappedMessage = new InterviewerMessage(content);
-    } else {
-      wrappedMessage = new CandidateMessage(content);
-    }
+    Message wrappedMessage = "interviewer".equalsIgnoreCase(role) 
+      ? new InterviewerMessage(content) 
+      : new CandidateMessage(content);
 
     messages.add(wrappedMessage);
 
