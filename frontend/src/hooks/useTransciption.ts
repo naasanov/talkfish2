@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import useDeepgram from "./context/deepgram/useDeepgram";
-import useMicrophone from "./context/microphone/useMicrophone";
+import { useEffect, useRef, useState } from "react";
+import useDeepgram from "../context/deepgram/useDeepgram";
+import useMicrophone from "../context/microphone/useMicrophone";
 import {
   MicrophoneEvents,
   MicrophoneState,
-} from "./context/microphone/MicrophoneContext";
+} from "../context/microphone/MicrophoneContext";
 import {
   LiveTranscriptionEvents,
   SOCKET_STATES,
@@ -55,17 +55,17 @@ export function useTranscription() {
     if (!connection) {
       console.log("[Hook] No connection, returning\n");
       return;
-    };
+    }
 
     const onTranscript = (data: LiveTranscriptionEvent) => {
-      console.log("\n[Transcript] Got transcript data")
       const text = data.channel.alternatives[0].transcript;
 
       if (text == "") {
-        console.log("[Transcript] Empty text, returning")
+        // console.log("[Transcript] Empty text, returning")
         return;
       }
 
+      console.log("\n[Transcript] Got transcript data");
       const isPunctuated = ["!", "?", "."].includes(text.slice(-1));
       const isFinal = data.speech_final && isPunctuated;
 
@@ -74,7 +74,10 @@ export function useTranscription() {
         "[Transcript] Current chunk before update:",
         currentChunkRef.current
       );
-      console.log("[Transcript] Last final chunk before update:", lastFinalChunk);
+      console.log(
+        "[Transcript] Last final chunk before update:",
+        lastFinalChunk
+      );
 
       setLastChunk(text);
       setTranscript((prev) => (prev == null ? text : `${prev} ${text}`));
@@ -96,7 +99,7 @@ export function useTranscription() {
           currentChunkRef.current = `${currentChunkRef.current} ${text}`;
         }
       }
-      console.log("\n")
+      console.log("\n");
     };
 
     if (connectionState === SOCKET_STATES.open) {
